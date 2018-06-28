@@ -957,43 +957,64 @@ class KeplerTargetPixelFile(TargetPixelFile):
             hdu.header['POSCORR1'] = pos_corr1
             hdu.header['POSCORR2'] = pos_corr2
 
+            tpfsize = size[0] # Use column value assuming a square TPF
+            if (tpfsize % 2 == 0): # Make sure tpfsize is odd to center the star
+                 tpfsize += 1
+
+            # Override the defaults where necessary
+            hdu.header['OBJECT'] = self.target_id
+            hdu.header['KEPLERID'] = self.target_id
+            hdu.header['RA_OBJ'] = self.keywords["RA_OBJ"]
+            hdu.header['DEC_OBJ'] = self.keywords["DEC_OBJ"]
+            hdu.header['TFORM4'] = jformat
+            hdu.header['TDIM4'] = coldim
+
+            for n in [5, 6, 7, 8, 9]:
+                hdu.header["TFORM{}".format(n)] = eformat
+
+            cd11 = self.keywords['CD1_1']
+            cd12 = self.keywords['CD1_2']
+            cd21 = self.keywords['CD2_1']
+            cd22 = self.keywords['CD2_2']
+            cdelt = hdu.header['2CDLT5']
+            hdu.header['11PC5'] = -1.0*cd11/cdelt
+            hdu.header['12PC5'] = -1.0*cd12/cdelt
+            hdu.header['21PC5'] = cd21/cdelt
+            hdu.header['22PC5'] = cd22/cdelt
+
+            hdu.header['1CRVL5'] = ractr
+            hdu.header['2CRVL5'] = decctr
+
+            for m in [4, 5, 6, 7, 8, 9]:
+                hdu.header['1CRV{}P'.format(m)] = col - int((tpfsize-1)/2) + factory.keywords['CRVAL1P']
+                hdu.header['2CRV{}P'.format(m)] = row - int((tpfsize-1)/2) + factory.keywords['CRVAL2P']
+                hdu.header['1CRPX{}'.format(m)] = (tpfsize + 1)/2
+                hdu.header['2CRPX{}'.format(m)] = (tpfsize + 1)/2
+
+            keys = ['OBJECT','KEPLERID','RA_OBJ','DEC_OBJ','TFORM4','11PC5','12PC5',\
+                    '21PC5','22PC5','1CRVL5','2CRVL5']
+
+            for m in [4, 5, 6, 7, 8, 9]:
+                if m > 4:
+                    keys.append("TFORM{}".format(m))
+                keys.append("TDIM{}".format(m))
+                keys.append('1CRV{}P'.format(m))
+                keys.append('2CRV{}P'.format(m))
+                keys.append('1CRPX{}'.format(m))
+                keys.append('2CRPX{}'.format(m))
+
+            jformat = '{}J'.format(size[0]*size[1])
+            coldim = '({},{})'.format(size[0],size[1])
+            values = [factory.target_id, factory.target_id,factory.keywords['RA_OBJ'],\
+                    factory.keywords['DEC_OBJ'],jformat,-1.0*cd11/cdelt, -1.0*cd12/cdelt,\
+                    cd21/cdelt, cd22/cdelt,ractr,decctr]
+
+
+
+
             factory.add_cadence(frameno=idx, wcs=wcs, flux=cutout.data, header=hdu.header)
-
-        tpfsize = size[0] # Use column value assuming a square TPF
-        if (tpfsize % 2 == 0): # Make sure tpfsize is odd to center the star
-             tpfsize += 1
-
-        # Override the defaults where necessary, and pass into the header generating functions
-        header_info = {}
-        header_info['OBJECT'] = factory.target_id
-        header_info['KEPLERID'] = factory.target_id
-        header_info['RA_OBJ'] = factory.keywords["RA_OBJ"]
-        header_info['DEC_OBJ'] = factory.keywords["DEC_OBJ"]
-
-        ext1_info = {}
-        ext1_info['TFORM4'] = '{}J'.format(size[0]*size[1])
-        ext1_info['TDIM4'] = '({},{})'.format(size[0],size[1])
-
-        cd11 = factory.keywords['CD1_1']
-        cd12 = factory.keywords['CD1_2']
-        cd21 = factory.keywords['CD2_1']
-        cd22 = factory.keywords['CD2_2']
-        ext1_info['11PC5'] = -1.0*cd11/0.001102672560321 # hard coded from the template file
-        ext1_info['12PC5'] = -1.0*cd12/0.001102672560321
-        ext1_info['21PC5'] = cd21/0.001102672560321
-        ext1_info['22PC5'] = cd22/0.001102672560321
-
-        for m in [4, 5, 6, 7, 8, 9]:
-            if m > 4:
-                header_info["TFORM{}".format(m)] = '{}E'.format(size[0]*size[1])
-            ext1_info['TDIM{}'.format(m)] = '({},{})'.format(size[0],size[1])
-            ext1_info['1CRV{}P'.format(m)] = col - int((tpfsize-1)/2) + factory.keywords['CRVAL1P']
-            ext1_info['2CRV{}P'.format(m)] = row - int((tpfsize-1)/2) + factory.keywords['CRVAL2P']
-            ext1_info['1CRPX{}'.format(m)] = (tpfsize + 1)/2
-            ext1_info['2CRPX{}'.format(m)] = (tpfsize + 1)/2
-
-        kwargs = {"header_info": header_info, "ext1_info": ext1_info}
         return factory.get_tpf(**kwargs)
+
 
 class KeplerTargetPixelFileFactory(object):
     """Class to create a KeplerTargetPixelFile."""
@@ -1056,12 +1077,12 @@ class KeplerTargetPixelFileFactory(object):
 
     def get_tpf(self, **kwargs):
         """Returns a KeplerTargetPixelFile object."""
-        return KeplerTargetPixelFile(self._hdulist(**kwargs), **kwargs)
+        return KeplerTargetPixelFile(self._hdulist(), **kwargs)
 
-    def _hdulist(self, **kwargs):
+    def _hdulist(self):
         """Returns an astropy.io.fits.HDUList object."""
-        return fits.HDUList([self._make_primary_hdu(**kwargs.get('header_info')),
-                             self._make_target_extension(**kwargs.get('ext1_info')),
+        return fits.HDUList([self._make_primary_hdu(),
+                             self._make_target_extension(),
                              self._make_aperture_extension()])
 
     def _header_template(self, extension):
@@ -1070,7 +1091,7 @@ class KeplerTargetPixelFileFactory(object):
                                    "tpf-ext{}-header.txt".format(extension))
         return fits.Header.fromtextfile(template_fn)
 
-    def _make_primary_hdu(self, keywords={}, **kwargs):
+    def _make_primary_hdu(self, keywords={}):
         """Returns the primary extension (#0)."""
         hdu = fits.PrimaryHDU()
         # Copy the default keywords from a template file from the MAST archive
@@ -1086,17 +1107,13 @@ class KeplerTargetPixelFileFactory(object):
         hdu.header['RA_OBJ'] = self.keywords['RA_OBJ']
         hdu.header['DEC_OBJ'] = self.keywords['DEC_OBJ']
 
-        # Override defaults using data calculated in from_fits_images
-        for kw in kwargs.keys():
-            hdu.header[kw] = kwargs[kw]
         # Empty a bunch of keywords rather than having incorrect info
         for kw in ["PROCVER", "FILEVER", "CHANNEL", "MODULE", "OUTPUT",
                    "TIMVERSN", "CAMPAIGN", "DATA_REL", "TTABLEID"]:
             hdu.header[kw] = ""
-
         return hdu
 
-    def _make_target_extension(self, **kwargs):
+    def _make_target_extension(self):
         """Create the 'TARGETTABLES' extension (i.e. extension #1)."""
         # Turn the data arrays into fits columns and initialize the HDU
         coldim = '({},{})'.format(self.n_cols, self.n_rows)
@@ -1146,10 +1163,6 @@ class KeplerTargetPixelFileFactory(object):
                 except KeyError:
                     hdu.header[kw] = (template[kw],
                                       template.comments[kw])
-        # Override defaults using data calculated in from_fits_images
-        for kw in kwargs.keys():
-            hdu.header[kw] = kwargs[kw]
-
         return hdu
 
     def _make_aperture_extension(self):
