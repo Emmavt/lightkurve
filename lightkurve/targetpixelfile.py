@@ -1031,7 +1031,7 @@ class KeplerTargetPixelFileFactory(object):
         self.pos_corr1 = np.zeros(n_cadences, dtype='float32')
         self.pos_corr2 = np.zeros(n_cadences, dtype='float32')
 
-    def add_cadence(self, frameno, wcs, raw_cnts=None, flux=None, flux_err=None,
+    def add_cadence(self, frameno, wcs=None, raw_cnts=None, flux=None, flux_err=None,
                     flux_bkg=None, flux_bkg_err=None, cosmic_rays=None,
                     header={}):
         """Populate the data for a single cadence."""
@@ -1072,7 +1072,7 @@ class KeplerTargetPixelFileFactory(object):
 
     def _make_primary_hdu(self, header):
         """Returns the primary extension (#0)."""
-        hdu = fits.PrimaryHDU() 
+        hdu = fits.PrimaryHDU()
         # Copy the default keywords from a template file from the MAST archive
         tmpl = self._header_template(0)
         for kw in tmpl:
