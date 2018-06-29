@@ -1070,7 +1070,7 @@ class KeplerTargetPixelFileFactory(object):
                                    "tpf-ext{}-header.txt".format(extension))
         return fits.Header.fromtextfile(template_fn)
 
-    def _make_primary_hdu(self, keywords={}, header):
+    def _make_primary_hdu(self, header):
         """Returns the primary extension (#0)."""
         hdu = fits.PrimaryHDU()
         # Copy the default keywords from a template file from the MAST archive
@@ -1093,7 +1093,6 @@ class KeplerTargetPixelFileFactory(object):
         for kw in ["PROCVER", "FILEVER", "CHANNEL", "MODULE", "OUTPUT",
                    "TIMVERSN", "CAMPAIGN", "DATA_REL", "TTABLEID"]:
             hdu.header[kw] = ""
-
         return hdu
 
     def _make_target_extension(self, ext1_info):
